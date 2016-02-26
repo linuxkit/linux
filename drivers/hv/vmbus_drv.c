@@ -1276,7 +1276,7 @@ static void hv_kexec_handler(void)
 	int cpu;
 
 	hv_synic_clockevents_cleanup();
-	vmbus_initiate_unload();
+	vmbus_initiate_unload(false);
 	for_each_online_cpu(cpu)
 		smp_call_function_single(cpu, hv_synic_cleanup, NULL, 1);
 	hv_cleanup();
@@ -1284,7 +1284,7 @@ static void hv_kexec_handler(void)
 
 static void hv_crash_handler(struct pt_regs *regs)
 {
-	vmbus_initiate_unload();
+	vmbus_initiate_unload(true);
 	/*
 	 * In crash handler we can't schedule synic cleanup for all CPUs,
 	 * doing the cleanup for current CPU only. This should be sufficient
