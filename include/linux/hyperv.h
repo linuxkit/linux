@@ -1349,4 +1349,18 @@ extern __u32 vmbus_proto_version;
 
 int vmbus_send_tl_connect_request(const uuid_le *shv_guest_servie_id,
 				  const uuid_le *shv_host_servie_id);
+struct vmpipe_proto_header {
+	u32 pkt_type;
+	u32 data_size;
+};
+
+#define HVSOCK_HEADER_LEN	(sizeof(struct vmpacket_descriptor) + \
+				 sizeof(struct vmpipe_proto_header))
+
+/* See 'prev_indices' in hv_ringbuffer_read(), hv_ringbuffer_write() */
+#define PREV_INDICES_LEN	(sizeof(u64))
+
+#define HVSOCK_PKT_LEN(payload_len)	(HVSOCK_HEADER_LEN + \
+					ALIGN((payload_len), 8) + \
+					PREV_INDICES_LEN)
 #endif /* _HYPERV_H */
