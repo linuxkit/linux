@@ -592,6 +592,7 @@ static int vmbus_close_internal(struct vmbus_channel *channel)
 
 out:
 	tasklet_enable(tasklet);
+	tasklet_schedule(tasklet);
 
 	return ret;
 }
