@@ -147,7 +147,6 @@ static u16 hv_get_dev_type(const uuid_le *guid)
 		if (!uuid_le_cmp(*guid, vmbus_devs[i].guid))
 			return i;
 	}
-	pr_info("Unknown GUID: %pUl\n", guid);
 	return i;
 }
 
