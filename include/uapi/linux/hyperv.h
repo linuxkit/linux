@@ -26,6 +26,7 @@
 #define _UAPI_HYPERV_H
 
 #include <linux/uuid.h>
+#include <linux/socket.h>
 
 /*
  * Framework version for util services.
@@ -395,5 +396,27 @@ struct hv_kvp_ip_msg {
 	__u8 pool;
 	struct hv_kvp_ipaddr_value      kvp_ip_val;
 } __attribute__((packed));
+
+/* This is the address format of Hyper-V Sockets.
+ * Note: here we just borrow the kernel's built-in type uuid_le. When
+ * an application calls bind() or connect(), the 2 members of struct
+ * sockaddr_hv must be of GUID.
+ * The GUID format differs from the UUID format only in the byte order of
+ * the first 3 fields. Refer to:
+ * https://en.wikipedia.org/wiki/Globally_unique_identifier
+ */
+struct sockaddr_hv {
+	__kernel_sa_family_t	shv_family;  /* Address family		*/
+	u16		reserved;	     /* Must be Zero		*/
+	uuid_le		shv_vm_guid;	     /* VM ID			*/
+	uuid_le		shv_service_guid;    /* Service ID		*/
+};
+
+#define SHV_VMID_GUEST	NULL_UUID_LE
+#define SHV_VMID_HOST	NULL_UUID_LE
+
+#define SHV_SERVICE_ID_ANY	NULL_UUID_LE
+
+#define SHV_PROTO_RAW		1
 
 #endif /* _UAPI_HYPERV_H */
