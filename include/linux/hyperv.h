@@ -1613,5 +1613,18 @@ static inline void commit_rd_index(struct vmbus_channel *channel)
 	hv_signal_on_read(channel);
 }
 
+struct vmpipe_proto_header {
+	u32 pkt_type;
+	u32 data_size;
+};
 
+#define HVSOCK_HEADER_LEN	(sizeof(struct vmpacket_descriptor) + \
+				 sizeof(struct vmpipe_proto_header))
+
+/* See 'prev_indices' in hv_ringbuffer_read(), hv_ringbuffer_write() */
+#define PREV_INDICES_LEN	(sizeof(u64))
+
+#define HVSOCK_PKT_LEN(payload_len)	(HVSOCK_HEADER_LEN + \
+					ALIGN((payload_len), 8) + \
+					PREV_INDICES_LEN)
 #endif /* _HYPERV_H */
