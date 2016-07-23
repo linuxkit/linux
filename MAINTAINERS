@@ -5853,7 +5853,9 @@ F:	drivers/pci/host/pci-hyperv.c
 F:	drivers/net/hyperv/
 F:	drivers/scsi/storvsc_drv.c
 F:	drivers/video/fbdev/hyperv_fb.c
+F:	net/hv_sock/
 F:	include/linux/hyperv.h
+F:	include/net/af_hvsock.h
 F:	tools/hv/
 F:	Documentation/ABI/stable/sysfs-bus-vmbus
 
