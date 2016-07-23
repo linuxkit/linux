@@ -1,0 +1,10 @@
+config HYPERV_SOCK
+	tristate "Hyper-V Sockets"
+	depends on HYPERV
+	default m if HYPERV
+	help
+	  Hyper-V Sockets is a socket interface for high speed
+	  communication between Linux guest and Hyper-V host over VMBus.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called hv_sock.
