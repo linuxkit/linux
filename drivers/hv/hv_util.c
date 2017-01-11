@@ -401,7 +401,12 @@ static int util_probe(struct hv_device *dev,
 	default:
 		util_fw_version = UTIL_FW_VERSION;
 		sd_srv_version = SD_VERSION;
-		ts_srv_version = TS_VERSION;
+		/*
+		 * XXX rneugeba: force TimeSync Version to 3.0 on
+		 * Windows 10 as well as older Windows 10 builds,
+		 * including 10586 to not support version 4.0
+		 */
+		ts_srv_version = TS_VERSION_3;
 		hb_srv_version = HB_VERSION;
 	}
 
