@@ -1288,6 +1288,8 @@ void netvsc_channel_cb(void *context)
 	ndev = hv_get_drvdata(device);
 	buffer = get_per_channel_state(channel);
 
+	init_cached_read_index(channel);
+
 	do {
 		desc = get_next_pkt_raw(channel);
 		if (desc != NULL) {
