@@ -19,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/hypervisor.h>
 
 #include "vmci_driver.h"
 #include "vmci_event.h"
@@ -57,6 +58,13 @@ static int __init vmci_drv_init(void)
 {
 	int vmci_err;
 	int error;
+
+	/*
+	 * Check if we are running on VMware's hypervisor and bail out
+	 * if we are not.
+	 */
+	if (x86_hyper != &x86_hyper_vmware)
+		return -ENODEV;
 
 	vmci_err = vmci_event_init();
 	if (vmci_err < VMCI_SUCCESS) {
