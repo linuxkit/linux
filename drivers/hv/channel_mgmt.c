@@ -363,11 +363,33 @@ static void percpu_channel_enq(void *arg)
 	list_add_tail_rcu(&channel->percpu_list, &hv_cpu->chan_list);
 }
 
+void hv_percpu_channel_enq(struct vmbus_channel *channel)
+{
+	if (channel->target_cpu != get_cpu())
+		smp_call_function_single(channel->target_cpu,
+					 percpu_channel_enq, channel, true);
+	else
+		percpu_channel_enq(channel);
+
+	put_cpu();
+}
+
 static void percpu_channel_deq(void *arg)
 {
 	struct vmbus_channel *channel = arg;
 
 	list_del_rcu(&channel->percpu_list);
+}
+
+void hv_percpu_channel_deq(struct vmbus_channel *channel)
+{
+	if (channel->target_cpu != get_cpu())
+		smp_call_function_single(channel->target_cpu,
+					 percpu_channel_deq, channel, true);
+	else
+		percpu_channel_deq(channel);
+
+	put_cpu();
 }
 
 
@@ -389,15 +411,6 @@ void hv_process_channel_removal(struct vmbus_channel *channel, u32 relid)
 
 	BUG_ON(!channel->rescind);
 	BUG_ON(!mutex_is_locked(&vmbus_connection.channel_mutex));
-
-	if (channel->target_cpu != get_cpu()) {
-		put_cpu();
-		smp_call_function_single(channel->target_cpu,
-					 percpu_channel_deq, channel, true);
-	} else {
-		percpu_channel_deq(channel);
-		put_cpu();
-	}
 
 	if (channel->primary_channel == NULL) {
 		list_del(&channel->listentry);
@@ -491,16 +504,6 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
 
 	init_vp_index(newchannel, dev_type);
 
-	if (newchannel->target_cpu != get_cpu()) {
-		put_cpu();
-		smp_call_function_single(newchannel->target_cpu,
-					 percpu_channel_enq,
-					 newchannel, true);
-	} else {
-		percpu_channel_enq(newchannel);
-		put_cpu();
-	}
-
 	/*
 	 * This state is used to indicate a successful open
 	 * so that when we do close the channel normally, we
@@ -548,15 +551,6 @@ err_deq_chan:
 	mutex_lock(&vmbus_connection.channel_mutex);
 	list_del(&newchannel->listentry);
 	mutex_unlock(&vmbus_connection.channel_mutex);
-
-	if (newchannel->target_cpu != get_cpu()) {
-		put_cpu();
-		smp_call_function_single(newchannel->target_cpu,
-					 percpu_channel_deq, newchannel, true);
-	} else {
-		percpu_channel_deq(newchannel);
-		put_cpu();
-	}
 
 	vmbus_release_relid(newchannel->offermsg.child_relid);
 
