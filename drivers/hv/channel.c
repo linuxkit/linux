@@ -225,6 +225,8 @@ error_free_pages:
 		     get_order(send_ringbuffer_size + recv_ringbuffer_size));
 error_set_chnstate:
 	newchannel->state = CHANNEL_OPEN_STATE;
+	newchannel->onchannel_callback = NULL;
+	newchannel->channel_callback_context = NULL;
 	return err;
 }
 EXPORT_SYMBOL_GPL(vmbus_open);
