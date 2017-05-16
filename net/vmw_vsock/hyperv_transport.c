@@ -476,13 +476,33 @@ static bool hvs_dgram_allow(u32 cid, u32 port)
 	return false;
 }
 
+static int hvs_update_recv_data(struct hvsock *hvs)
+{
+	struct hvs_recv_buf *recv_buf;
+	u32 payload_len;
+
+	recv_buf = (struct hvs_recv_buf *)(hvs->recv_desc + 1);
+	payload_len = recv_buf->hdr.data_size;
+
+	if (payload_len > HVS_MTU_SIZE)
+		return -EIO;
+
+	if (payload_len == 0)
+		hvs->vsk->peer_shutdown |= SEND_SHUTDOWN;
+
+	hvs->recv_data_len = payload_len;
+	hvs->recv_data_off = 0;
+
+	return 0;
+}
+
 static ssize_t hvs_stream_dequeue(struct vsock_sock *vsk, struct msghdr *msg,
 				  size_t len, int flags)
 {
 	struct hvsock *hvs = vsk->trans;
 	bool need_refill = !hvs->recv_desc;
 	struct hvs_recv_buf *recv_buf;
-	u32 payload_len, to_read;
+	u32 to_read;
 	int ret;
 
 	if (flags & MSG_PEEK)
@@ -490,29 +510,28 @@ static ssize_t hvs_stream_dequeue(struct vsock_sock *vsk, struct msghdr *msg,
 
 	if (need_refill) {
 		hvs->recv_desc = hv_pkt_iter_first(hvs->chan);
-		recv_buf = (struct hvs_recv_buf *)(hvs->recv_desc + 1);
-
-		payload_len = recv_buf->hdr.data_size;
-		if (payload_len == 0 || payload_len > HVS_MTU_SIZE)
-			return -EIO;
-
-		hvs->recv_data_len = payload_len;
-		hvs->recv_data_off = 0;
-	} else {
-		recv_buf = (struct hvs_recv_buf *)(hvs->recv_desc + 1);
+		ret = hvs_update_recv_data(hvs);
+		if (ret)
+			return ret;
 	}
 
+	recv_buf = (struct hvs_recv_buf *)(hvs->recv_desc + 1);
 	to_read = min_t(u32, len, hvs->recv_data_len);
 	ret = memcpy_to_msg(msg, recv_buf->data + hvs->recv_data_off, to_read);
 	if (ret != 0)
 		return ret;
 
 	hvs->recv_data_len -= to_read;
-
-	if (hvs->recv_data_len == 0)
+	if (hvs->recv_data_len == 0) {
 		hvs->recv_desc = hv_pkt_iter_next(hvs->chan, hvs->recv_desc);
-	else
+		if (hvs->recv_desc) {
+			ret = hvs_update_recv_data(hvs);
+			if (ret)
+				return ret;
+		}
+	} else {
 		hvs->recv_data_off += to_read;
+	}
 
 	return to_read;
 }
@@ -553,6 +572,9 @@ static s64 hvs_stream_has_data(struct vsock_sock *vsk)
 {
 	struct hvsock *hvs = vsk->trans;
 	s64 ret;
+
+	if (hvs->recv_data_len > 0)
+		return 1;
 
 	switch (hvs_channel_readable_payload(hvs->chan)) {
 	case 1:
