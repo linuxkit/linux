@@ -467,6 +467,7 @@ void vmbus_free_channels(void)
 static void vmbus_process_offer(struct vmbus_channel *newchannel)
 {
 	struct vmbus_channel *channel;
+	struct hv_device *device_obj;
 	bool fnew = true;
 	unsigned long flags;
 	u16 dev_type;
@@ -524,6 +525,7 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
 		if (channel->sc_creation_callback != NULL)
 			channel->sc_creation_callback(newchannel);
 		atomic_dec(&vmbus_connection.offer_in_progress);
+		atomic_dec(&vmbus_connection.register_in_progress);
 		return;
 	}
 
@@ -532,33 +534,36 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
 	 * We need to set the DeviceObject field before calling
 	 * vmbus_child_dev_add()
 	 */
-	newchannel->device_obj = vmbus_device_create(
+	device_obj = vmbus_device_create(
 		&newchannel->offermsg.offer.if_type,
 		&newchannel->offermsg.offer.if_instance,
 		newchannel);
-	if (!newchannel->device_obj)
+	if (!device_obj)
 		goto err_deq_chan;
 
-	newchannel->device_obj->device_id = dev_type;
+	device_obj->device_id = dev_type;
 	/*
 	 * Add the new device to the bus. This will kick off device-driver
 	 * binding which eventually invokes the device driver's AddDevice()
 	 * method.
 	 */
-	ret = vmbus_device_register(newchannel->device_obj);
+	atomic_dec(&vmbus_connection.offer_in_progress);
+	ret = vmbus_device_register(device_obj);
 
 	if (ret != 0) {
 		pr_err("unable to add child device object (relid %d)\n",
 			newchannel->offermsg.child_relid);
-		kfree(newchannel->device_obj);
+		kfree(device_obj);
 		goto err_deq_chan;
 	}
+	newchannel->device_obj = device_obj;
+	atomic_dec(&vmbus_connection.register_in_progress);
 
-	atomic_dec(&vmbus_connection.offer_in_progress);
 	return;
 
 err_deq_chan:
 	atomic_dec(&vmbus_connection.offer_in_progress);
+	atomic_dec(&vmbus_connection.register_in_progress);
 	mutex_lock(&vmbus_connection.channel_mutex);
 	list_del(&newchannel->listentry);
 	mutex_unlock(&vmbus_connection.channel_mutex);
@@ -888,6 +893,14 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
 	spin_unlock_irqrestore(&channel->lock, flags);
 
 	vmbus_rescind_cleanup(channel);
+
+	while (atomic_read(&vmbus_connection.register_in_progress) != 0) {
+		/*
+		 * We wait here until any channel offer is currently
+		 * being processed.
+		 */
+		msleep(1);
+	}
 
 	if (channel->device_obj) {
 		if (channel->chn_rescind_callback) {
