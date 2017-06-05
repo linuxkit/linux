@@ -839,6 +839,52 @@ static void vmbus_onmessage_work(struct work_struct *work)
 	kfree(ctx);
 }
 
+static void vmbus_dispatch_msg_work(struct work_struct *work)
+{
+	struct vmbus_channel_message_header *hdr;
+	struct onmessage_work_context *ctx, *context;
+
+	ctx = container_of(work, struct onmessage_work_context, work);
+	hdr = (struct vmbus_channel_message_header *)ctx->msg.u.payload;
+
+	context = kmalloc(sizeof(*context), GFP_KERNEL | __GFP_NOFAIL);
+	INIT_WORK(&context->work, vmbus_onmessage_work);
+	memcpy(&context->msg, &ctx->msg, sizeof(struct hv_message));
+
+	/*
+	 * The host can generate a rescind message while we
+	 * may still be handling the original offer. We deal with
+	 * this condition by ensuring the processing is done on the
+	 * same CPU.
+	 */
+	switch (hdr->msgtype) {
+	case CHANNELMSG_RESCIND_CHANNELOFFER:
+		/*
+		 * If we are handling the rescind message;
+		 * schedule the work on the global work queue.
+		 */
+		queue_work_on(vmbus_connection.connect_cpu,
+			      vmbus_connection.work_queue_rescind,
+			      &context->work);
+		break;
+
+	case CHANNELMSG_OFFERCHANNEL:
+		/* XXX */
+		flush_workqueue(vmbus_connection.work_queue_rescind);
+
+		atomic_inc(&vmbus_connection.offer_in_progress);
+		queue_work_on(vmbus_connection.connect_cpu,
+			      vmbus_connection.work_queue,
+			      &context->work);
+		break;
+
+	default:
+		queue_work(vmbus_connection.work_queue, &context->work);
+	}
+
+	kfree(ctx);
+}
+
 static void hv_process_timer_expiration(struct hv_message *msg,
 					struct hv_per_cpu_context *hv_cpu)
 {
@@ -878,9 +924,10 @@ void vmbus_on_msg_dpc(unsigned long data)
 		if (ctx == NULL)
 			return;
 
-		INIT_WORK(&ctx->work, vmbus_onmessage_work);
+		INIT_WORK(&ctx->work, vmbus_dispatch_msg_work);
 		memcpy(&ctx->msg, msg, sizeof(*msg));
 
+#if 0
 		/*
 		 * The host can generate a rescind message while we
 		 * may still be handling the original offer. We deal with
@@ -893,8 +940,9 @@ void vmbus_on_msg_dpc(unsigned long data)
 			 * If we are handling the rescind message;
 			 * schedule the work on the global work queue.
 			 */
-			schedule_work_on(vmbus_connection.connect_cpu,
-					 &ctx->work);
+			queue_work_on(vmbus_connection.connect_cpu,
+				      vmbus_connection.work_queue_rescind,
+				      &ctx->work);
 			break;
 
 		case CHANNELMSG_OFFERCHANNEL:
@@ -907,6 +955,9 @@ void vmbus_on_msg_dpc(unsigned long data)
 		default:
 			queue_work(vmbus_connection.work_queue, &ctx->work);
 		}
+#else
+		schedule_work(&ctx->work);
+#endif
 	} else
 		entry->message_handler(hdr);
 
@@ -1204,6 +1255,8 @@ int vmbus_device_register(struct hv_device *child_device_obj)
 	child_device_obj->device.parent = &hv_acpi_dev->dev;
 	child_device_obj->device.release = vmbus_device_release;
 
+	if (is_hvsock_channel(child_device_obj->channel))
+		dev_set_uevent_suppress(&child_device_obj->device, 1);
 	/*
 	 * Register with the LDM. This will kick off the driver/device
 	 * binding...which will eventually call vmbus_match() and vmbus_probe()

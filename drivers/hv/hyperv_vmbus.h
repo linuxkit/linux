@@ -350,6 +350,7 @@ struct vmbus_connection {
 	struct mutex channel_mutex;
 
 	struct workqueue_struct *work_queue;
+	struct workqueue_struct *work_queue_rescind;
 };
 
 
