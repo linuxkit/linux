@@ -320,6 +320,7 @@ struct vmbus_connection {
 	int connect_cpu;
 
 	atomic_t offer_in_progress;
+	atomic_t register_in_progress;
 
 	enum vmbus_connect_state conn_state;
 
