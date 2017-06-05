@@ -365,11 +365,16 @@ static void percpu_channel_enq(void *arg)
 
 void hv_percpu_channel_enq(struct vmbus_channel *channel)
 {
+	unsigned long flags;
+
 	if (channel->target_cpu != get_cpu())
 		smp_call_function_single(channel->target_cpu,
 					 percpu_channel_enq, channel, true);
-	else
+	else {
+		local_irq_save(flags);
 		percpu_channel_enq(channel);
+		local_irq_restore(flags);
+	}
 
 	put_cpu();
 }
@@ -383,11 +388,16 @@ static void percpu_channel_deq(void *arg)
 
 void hv_percpu_channel_deq(struct vmbus_channel *channel)
 {
+	unsigned long flags;
+
 	if (channel->target_cpu != get_cpu())
 		smp_call_function_single(channel->target_cpu,
 					 percpu_channel_deq, channel, true);
-	else
+	else {
+		local_irq_save(flags);
 		percpu_channel_deq(channel);
+		local_irq_restore(flags);
+	}
 
 	put_cpu();
 }
@@ -495,7 +505,6 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
 			channel->num_sc++;
 			spin_unlock_irqrestore(&channel->lock, flags);
 		} else {
-			atomic_dec(&vmbus_connection.offer_in_progress);
 			goto err_free_chan;
 		}
 	}
@@ -549,6 +558,7 @@ static void vmbus_process_offer(struct vmbus_channel *newchannel)
 	return;
 
 err_deq_chan:
+	atomic_dec(&vmbus_connection.offer_in_progress);
 	mutex_lock(&vmbus_connection.channel_mutex);
 	list_del(&newchannel->listentry);
 	mutex_unlock(&vmbus_connection.channel_mutex);
@@ -915,16 +925,28 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
 	}
 }
 
+static void vmbus_stop_rescind_handling_work(struct work_struct *work)
+{
+	atomic_inc(&vmbus_connection.offer_in_progress);
+}
+
 void vmbus_hvsock_device_unregister(struct vmbus_channel *channel)
 {
-	mutex_lock(&vmbus_connection.channel_mutex);
+	struct work_struct work;
 
 	BUG_ON(!is_hvsock_channel(channel));
+
+	/* Prevent chn_rescind_callback from running in the rescind path */
+	INIT_WORK(&work, vmbus_stop_rescind_handling_work);
+	queue_work_on(vmbus_connection.connect_cpu,
+		      vmbus_connection.work_queue_rescind, &work);
+	flush_work(&work);
 
 	channel->rescind = true;
 	vmbus_device_unregister(channel->device_obj);
 
-	mutex_unlock(&vmbus_connection.channel_mutex);
+	/* Unblock the rescind handling */
+	atomic_dec(&vmbus_connection.offer_in_progress);
 }
 EXPORT_SYMBOL_GPL(vmbus_hvsock_device_unregister);
 
