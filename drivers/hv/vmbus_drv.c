@@ -873,6 +873,7 @@ static void vmbus_dispatch_msg_work(struct work_struct *work)
 		flush_workqueue(vmbus_connection.work_queue_rescind);
 
 		atomic_inc(&vmbus_connection.offer_in_progress);
+		atomic_inc(&vmbus_connection.register_in_progress);
 		queue_work_on(vmbus_connection.connect_cpu,
 			      vmbus_connection.work_queue,
 			      &context->work);
