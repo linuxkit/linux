@@ -95,6 +95,9 @@ struct hvsock {
 	u32 recv_data_len;
 	/* The offset of the payload */
 	u32 recv_data_off;
+
+	/* Have we sent the zero-length packet (FIN)? */
+	unsigned long fin_sent;
 };
 
 /* In the VM, we support Hyper-V Sockets with AF_VSOCK, and the endpoint is
@@ -424,6 +427,9 @@ static int hvs_shutdown(struct vsock_sock *vsk, int mode)
 		return 0;
 
 	hvs = vsk->trans;
+
+	if (test_and_set_bit(0, &hvs->fin_sent))
+		return 0;
 
 	send_buf = (struct hvs_send_buf *)&hdr;
 
