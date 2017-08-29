@@ -905,6 +905,9 @@ static void vmbus_onoffer_rescind(struct vmbus_channel_message_header *hdr)
 	if (channel->device_obj) {
 		if (channel->chn_rescind_callback) {
 			channel->chn_rescind_callback(channel);
+
+			vmbus_device_unregister(channel->device_obj);
+
 			return;
 		}
 		/*
@@ -954,9 +957,6 @@ void vmbus_hvsock_device_unregister(struct vmbus_channel *channel)
 	queue_work_on(vmbus_connection.connect_cpu,
 		      vmbus_connection.work_queue_rescind, &work);
 	flush_work(&work);
-
-	channel->rescind = true;
-	vmbus_device_unregister(channel->device_obj);
 
 	/* Unblock the rescind handling */
 	atomic_dec(&vmbus_connection.offer_in_progress);
