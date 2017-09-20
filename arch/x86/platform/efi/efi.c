@@ -179,6 +179,7 @@ int __init efi_memblock_x86_reserve_range(void)
 
 	if (efi_enabled(EFI_PARAVIRT))
 		return 0;
+	pr_info("XXX: efi.c:efi_memblock_reserve_setup()\n");
 
 #ifdef CONFIG_X86_32
 	/* Can't handle data above 4GB at this time */
@@ -205,6 +206,9 @@ int __init efi_memblock_x86_reserve_range(void)
 	WARN(efi.memmap.desc_version != 1,
 	     "Unexpected EFI_MEMORY_DESCRIPTOR version %ld",
 	     efi.memmap.desc_version);
+
+	pr_info("XXX: efi.c:efi_memblock_reserve_setup(): reserve 0x%016llx size=0x%08x\n",
+		pmap, efi.memmap.nr_map * efi.memmap.desc_size);
 
 	memblock_reserve(pmap, efi.memmap.nr_map * efi.memmap.desc_size);
 
@@ -481,6 +485,8 @@ void __init efi_init(void)
 	int i = 0;
 	void *tmp;
 
+	pr_info("XXX: efi.c:efi_init()\n");
+
 #ifdef CONFIG_X86_32
 	if (boot_params.efi_info.efi_systab_hi ||
 	    boot_params.efi_info.efi_memmap_hi) {
@@ -533,6 +539,7 @@ void __init efi_init(void)
 	else {
 		if (efi_runtime_disabled() || efi_runtime_init()) {
 			efi_memmap_unmap();
+			pr_info("XXX: efi_memmap_unmap() 001\n");
 			return;
 		}
 	}
@@ -834,6 +841,7 @@ static void __init kexec_enter_virtual_mode(void)
 	 */
 	if (!efi_is_native() || efi_enabled(EFI_OLD_MEMMAP)) {
 		efi_memmap_unmap();
+		pr_info("XXX: efi_memmap_unmap() 002\n");
 		clear_bit(EFI_RUNTIME_SERVICES, &efi.flags);
 		return;
 	}
@@ -858,6 +866,7 @@ static void __init kexec_enter_virtual_mode(void)
 	 * the new EFI memory map.
 	 */
 	efi_memmap_unmap();
+	pr_info("XXX: efi_memmap_unmap() 003\n");
 
 	if (efi_memmap_init_late(efi.memmap.phys_map,
 				 efi.memmap.desc_size * efi.memmap.nr_map)) {
@@ -951,6 +960,7 @@ static void __init __efi_enter_virtual_mode(void)
 	 * firmware via SetVirtualAddressMap().
 	 */
 	efi_memmap_unmap();
+	pr_info("XXX: efi_memmap_unmap() 004\n");
 
 	if (efi_memmap_init_late(pa, efi.memmap.desc_size * count)) {
 		pr_err("Failed to remap late EFI memory map\n");

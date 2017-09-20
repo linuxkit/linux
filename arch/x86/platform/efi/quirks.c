@@ -476,6 +476,7 @@ void __init efi_apply_memmap_quirks(void)
 	if (!efi_runtime_supported()) {
 		pr_info("Setup done, disabling due to 32/64-bit mismatch\n");
 		efi_memmap_unmap();
+		pr_info("XXX: efi_memmap_unmap() 011\n");
 	}
 
 	/* UV2+ BIOS has a fix for this issue.  UV1 still needs the quirk. */

@@ -496,6 +496,7 @@ void __iomem *__init efi_ioremap(unsigned long phys_addr, unsigned long size,
 void __init parse_efi_setup(u64 phys_addr, u32 data_len)
 {
 	efi_setup = phys_addr + sizeof(struct setup_data);
+	pr_info("XXX: efi_64.c:parse_efi_setup() efi_setup=%#018Lx\n", efi_setup);
 }
 
 static int __init efi_update_mappings(efi_memory_desc_t *md, unsigned long pf)

@@ -413,6 +413,7 @@ static void __init parse_setup_data(void)
 	u64 pa_data, pa_next;
 
 	pa_data = boot_params.hdr.setup_data;
+	pr_info("XXX: parse_setup_data() pa_data=%#018Lx\n", pa_data);
 	while (pa_data) {
 		u32 data_len, data_type;
 
@@ -421,6 +422,8 @@ static void __init parse_setup_data(void)
 		data_type = data->type;
 		pa_next = data->next;
 		early_memunmap(data, sizeof(*data));
+
+		pr_info("XXX: parse_setup_data() data_type=%#08x\n", data_type);
 
 		switch (data_type) {
 		case SETUP_E820_EXT:
@@ -927,8 +930,45 @@ void __init setup_arch(char **cmdline_p)
 		set_bit(EFI_64BIT, &efi.flags);
 	}
 
+	/* XXX Most of the debug here is commented out as it prevents the bug from triggering 
+         * We print it below instead. */
+#if 0
+	/* XXX Dump selected fields of the struct efi_info and struct efi. 
+	 * efi_info is passed in from the bootloader */
+	pr_info("XXX: setup.c:setup_arch() efi_info.systab=%#08x:%#08x\n",
+		boot_params.efi_info.efi_systab_hi, boot_params.efi_info.efi_systab);
+	pr_info("XXX: setup.c:setup_arch() efi_info.memdesc_size=%#08x version=%#08x\n",
+		boot_params.efi_info.efi_memdesc_size, boot_params.efi_info.efi_memdesc_version);
+	pr_info("XXX: setup.c:setup_arch() efi_info.memmap=%#08x:%#08x (%#08x)\n",
+		boot_params.efi_info.efi_memmap_hi, boot_params.efi_info.efi_memmap,
+		boot_params.efi_info.efi_memmap_size);
+#endif
+
+	pr_info("XXX: setup.c:setup_arch() efi.flags=%#08x\n", efi.flags);
 	if (efi_enabled(EFI_BOOT))
 		efi_memblock_x86_reserve_range();
+
+#if 0
+	/* XXX efi_memblock_x86_reserve_range() sets up more info in struct efi.print it */
+	pr_info("XXX: setup.c:setup_arch() efi.flags=%#08x\n", efi.flags);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.physmap=%#016Lx\n", efi.memmap.phys_map);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.map=%#016Lx\n", efi.memmap.map);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.map_end=%#016Lx\n", efi.memmap.map_end);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.nr_map=%#x\n", efi.memmap.nr_map);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.desc_version=%#08x\n", efi.memmap.desc_version);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.desc_size=%#08x\n", efi.memmap.desc_size);
+	pr_info("XXX: setup.c:setup_arch() efi.memmap.desc_size=%#x\n", efi.memmap.late);
+	pr_info("XXX: setup.c:setup_arch() efi.mem_attr_table=%#016Lx\n", efi.mem_attr_table);
+
+	/* efi_memblock_x86_reserve_range() also maps the memory map into VA space, so dump it */
+	if (efi_enabled(EFI_MEMMAP)) {
+		efi_print_memmap();
+	}
+#endif
+
+	if (!efi_enabled(EFI_MEMMAP)) {
+		pr_info("XXX: setup.c:setup_arch() efi memmap not mapped, weird\n");
+	}
 #endif
 
 	x86_init.oem.arch_setup();
@@ -1026,8 +1066,36 @@ void __init setup_arch(char **cmdline_p)
 	e820__reserve_setup_data();
 	e820__finish_early_params();
 
-	if (efi_enabled(EFI_BOOT))
+	if (!efi_enabled(EFI_MEMMAP)) {
+		pr_info("XXX: setup.c:setup_arch()2 efi memmap not mapped, weird\n");
+	}
+
+	if (efi_enabled(EFI_BOOT)) {
 		efi_init();
+
+		/* XXX Dump selected fields of the struct efi_info and struct
+		 * efi. efi_info is passed in from the bootloader */
+		pr_info("XXX: setup.c:setup_arch() efi_info.systab=%#08x:%#08x\n",
+			boot_params.efi_info.efi_systab_hi, boot_params.efi_info.efi_systab);
+		pr_info("XXX: setup.c:setup_arch() efi_info.memdesc_size=%#08x version=%#08x\n",
+			boot_params.efi_info.efi_memdesc_size, boot_params.efi_info.efi_memdesc_version);
+		pr_info("XXX: setup.c:setup_arch() efi_info.memmap=%#08x:%#08x (%#08x)\n",
+			boot_params.efi_info.efi_memmap_hi, boot_params.efi_info.efi_memmap,
+			boot_params.efi_info.efi_memmap_size);
+
+		/* XXX efi_memblock_x86_reserve_range() sets up more
+		 * info in struct efi above, but if we print there it
+		 * makes it a lot harder to repro. so print the info  here. */
+		pr_info("XXX: setup.c:setup_arch() efi.flags=%#08x\n", efi.flags);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.physmap=%#016Lx\n", efi.memmap.phys_map);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.map=%#016Lx\n", efi.memmap.map);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.map_end=%#016Lx\n", efi.memmap.map_end);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.nr_map=%#x\n", efi.memmap.nr_map);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.desc_version=%#08x\n", efi.memmap.desc_version);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.desc_size=%#08x\n", efi.memmap.desc_size);
+		pr_info("XXX: setup.c:setup_arch() efi.memmap.desc_size=%#x\n", efi.memmap.late);
+		pr_info("XXX: setup.c:setup_arch() efi.mem_attr_table=%#016Lx\n", efi.mem_attr_table);
+	}
 
 	dmi_scan_machine();
 	dmi_memdev_walk();

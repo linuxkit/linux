@@ -128,6 +128,7 @@ void __init efi_memmap_unmap(void)
 
 	efi.memmap.map = NULL;
 	clear_bit(EFI_MEMMAP, &efi.flags);
+	pr_info("XXX: efi_memmap_unmap(): done\n");
 }
 
 /**
@@ -193,6 +194,7 @@ int __init efi_memmap_install(phys_addr_t addr, unsigned int nr_map)
 	struct efi_memory_map_data data;
 
 	efi_memmap_unmap();
+	pr_info("XXX: efi_memmap_unmap() 021\n");
 
 	data.phys_map = addr;
 	data.size = efi.memmap.desc_size * nr_map;
