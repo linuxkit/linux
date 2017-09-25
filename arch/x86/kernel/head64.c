@@ -253,6 +253,10 @@ static void __init copy_bootdata(char *real_mode_data)
 	}
 }
 
+/* XXX global to stash some state during the boot process */
+extern u32 xxx_efi_debug;
+#include <linux/efi.h>
+
 asmlinkage __visible void __init x86_64_start_kernel(char * real_mode_data)
 {
 	int i;
@@ -288,10 +292,30 @@ asmlinkage __visible void __init x86_64_start_kernel(char * real_mode_data)
 
 	copy_bootdata(__va(real_mode_data));
 
+        /* XXX check the first EFI memap descriptor using the direct
+         * map. Assumes the map is in the low 4G, which it is. */
+        {
+                efi_memory_desc_t *md = __va(boot_params.efi_info.efi_memmap);
+                unsigned long long start = md->phys_addr;
+                unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+                if (start != 0 || size != 0)
+                        xxx_efi_debug |= (1 << 0);
+        }
+
 	/*
 	 * Load microcode early on BSP.
 	 */
 	load_ucode_bsp();
+
+        /* XXX check the first EFI memap descriptor using the direct
+         * map. Assumes the map is in the low 4G, which it is. */
+        {
+                efi_memory_desc_t *md = __va(boot_params.efi_info.efi_memmap);
+                unsigned long long start = md->phys_addr;
+                unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+                if (start != 0 || size != 0)
+                        xxx_efi_debug |= (1 << 1);
+        }
 
 	/* set init_top_pgt kernel high mapping*/
 	init_top_pgt[511] = early_top_pgt[511];
@@ -301,6 +325,16 @@ asmlinkage __visible void __init x86_64_start_kernel(char * real_mode_data)
 
 void __init x86_64_start_reservations(char *real_mode_data)
 {
+        /* XXX check the first EFI memap descriptor using the direct
+         * map. Assumes the map is in the low 4G, which it is. */
+        {
+                efi_memory_desc_t *md = __va(boot_params.efi_info.efi_memmap);
+                unsigned long long start = md->phys_addr;
+                unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+                if (start != 0 || size != 0)
+                        xxx_efi_debug |= (1 << 2);
+        }
+
 	/* version is always not zero if it is copied */
 	if (!boot_params.hdr.version)
 		copy_bootdata(__va(real_mode_data));

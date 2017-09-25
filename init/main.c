@@ -506,32 +506,57 @@ static void __init mm_init(void)
 	ioremap_huge_init();
 }
 
+/* XXX During early boot we may not have printk, so use a global
+ * bitmap and set a bit if there is a valid entry in the EFI
+ * memmap. We check the first EFI memap descriptor using the direct
+ * map. Assumes the map is in the low 4G, which it is.  */
+u32 xxx_efi_debug;
+static inline xxx_efi_debug_set(int x)
+{
+	efi_memory_desc_t *md = __va(boot_params.efi_info.efi_memmap);
+	unsigned long long start = md->phys_addr;
+	unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+	if (start != 0 || size != 0)
+		xxx_efi_debug |= (1 << x);
+}
+
 asmlinkage __visible void __init start_kernel(void)
 {
 	char *command_line;
 	char *after_dashes;
 
+	xxx_efi_debug_set(8);
+
 	set_task_stack_end_magic(&init_task);
+	xxx_efi_debug_set(9);
 	smp_setup_processor_id();
+	xxx_efi_debug_set(10);
 	debug_objects_early_init();
+	xxx_efi_debug_set(11);
 
 	/*
 	 * Set up the initial canary ASAP:
 	 */
 	add_latent_entropy();
+	xxx_efi_debug_set(12);
 	boot_init_stack_canary();
+	xxx_efi_debug_set(13);
 
 	cgroup_init_early();
+	xxx_efi_debug_set(14);
 
 	local_irq_disable();
 	early_boot_irqs_disabled = true;
+	xxx_efi_debug_set(15);
 
 	/*
 	 * Interrupts are still disabled. Do necessary setups, then
 	 * enable them.
 	 */
 	boot_cpu_init();
+	xxx_efi_debug_set(16);
 	page_address_init();
+	xxx_efi_debug_set(17);
 	pr_notice("%s", linux_banner);
 	setup_arch(&command_line);
 	mm_init_cpumask(&init_mm);

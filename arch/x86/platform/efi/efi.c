@@ -206,6 +206,16 @@ int __init efi_memblock_x86_reserve_range(void)
 	     "Unexpected EFI_MEMORY_DESCRIPTOR version %ld",
 	     efi.memmap.desc_version);
 
+	{
+		/* XXX Debug: Check that the EFI memory map is valid, only check the first entry */
+		efi_memory_desc_t *md = efi.memmap.map;
+		unsigned long long start = md->phys_addr;
+		unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+		if (start == 0 && size == 0)
+			pr_info("XXX: %s:%i: %p: %#016Lx %#016Lx\n",
+				__func__, __LINE__, md, start, size);
+	}
+
 	memblock_reserve(pmap, efi.memmap.nr_map * efi.memmap.desc_size);
 
 	return 0;
@@ -266,6 +276,20 @@ static void __init efi_clean_memmap(void)
 		}
 		in = (void *)in + efi.memmap.desc_size;
 	}
+
+	/* XXX When we crash, lots of error messages will have been printed by
+	 * efi_memmap_entry_valid() above, so dump the state here
+	 * before we modify it during efi_memmap_install() below. */
+	pr_info("XXX: efi_clean_memmap(): efi.flags=%#08lx\n", efi.flags);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.phys_map=%#016Lx\n", efi.memmap.phys_map);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.map=%p\n", efi.memmap.map);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.map_end=%p\n", efi.memmap.map_end);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.nr_map=%#x\n", efi.memmap.nr_map);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.desc_version=%#08lx\n", efi.memmap.desc_version);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.desc_size=%#08lx\n", efi.memmap.desc_size);
+	pr_info("XXX: efi_clean_memmap(): efi.memmap.late=%#x\n", efi.memmap.late);
+	pr_info("XXX: efi_clean_memmap(): efi.mem_attr_table=%#016Lx\n", efi.mem_attr_table);
+	pr_info("XXX: efi_clean_memmap(): &efi.memmap=%p\n", &efi.memmap);
 
 	if (n_removal > 0) {
 		u64 size = efi.memmap.nr_map - n_removal;
@@ -533,6 +557,7 @@ void __init efi_init(void)
 	else {
 		if (efi_runtime_disabled() || efi_runtime_init()) {
 			efi_memmap_unmap();
+			pr_info("XXX: %s:%s:%i: efi_memmap_unmap()\n", __FILE__, __func__, __LINE__);
 			return;
 		}
 	}
@@ -951,6 +976,7 @@ static void __init __efi_enter_virtual_mode(void)
 	 * firmware via SetVirtualAddressMap().
 	 */
 	efi_memmap_unmap();
+	pr_info("XXX: %s:%s:%i: efi_memmap_unmap()\n", __FILE__, __func__, __LINE__);
 
 	if (efi_memmap_init_late(pa, efi.memmap.desc_size * count)) {
 		pr_err("Failed to remap late EFI memory map\n");

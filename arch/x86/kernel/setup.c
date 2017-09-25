@@ -845,8 +845,21 @@ static void __init simple_udelay_calibration(void)
  * Note: On x86_64, fixmaps are ready for use even before this is called.
  */
 
+/* XXX global to stash some state during the boot process */
+extern u32 xxx_efi_debug;
+
 void __init setup_arch(char **cmdline_p)
 {
+	/* XXX check the first EFI memap descriptor using the direct
+	 * map. Assumes the map is in the low 4G, which it is. */
+	{
+		efi_memory_desc_t *md = __va(boot_params.efi_info.efi_memmap);
+		unsigned long long start = md->phys_addr;
+                unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+                if (start != 0 || size != 0)
+			xxx_efi_debug |= (1 << 24);
+	}
+
 	memblock_reserve(__pa_symbol(_text),
 			 (unsigned long)__bss_stop - (unsigned long)_text);
 
@@ -883,6 +896,28 @@ void __init setup_arch(char **cmdline_p)
 #else
 	printk(KERN_INFO "Command line: %s\n", boot_command_line);
 #endif
+
+	/* XXX Dump the pad2 data used by our modified efi-stub plus other info*/
+	pr_info("XXX: %s:%i: EFI stub state: %#02x %#02x %#02x %#02x\n",
+		__func__, __LINE__,
+		boot_params._pad2[0], boot_params._pad2[1],
+		boot_params._pad2[2], boot_params._pad2[3]);
+	pr_info("XXX: %s:%i: EFI early boot state: %#08x\n",
+		__func__, __LINE__, xxx_efi_debug);
+	printk("XXX: %s:%i: efi_info.memmap=%#08x:%#08x (%#04x)\n",
+	       __func__, __LINE__,
+	       boot_params.efi_info.efi_memmap_hi,
+	       boot_params.efi_info.efi_memmap,
+	       boot_params.efi_info.efi_memmap_size);
+	/* XXX dump the first descriptor using the direct map. Assumes
+	 * the map is in the low 4G, which it is. */
+	{
+		efi_memory_desc_t *md = __va(boot_params.efi_info.efi_memmap);
+		unsigned long long start = md->phys_addr;
+                unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+		printk("XXX: %s:%i: %p: %#016Lx %#016Lx\n", __func__,
+		       __LINE__, md, start, size);
+	}
 
 	/*
 	 * If we have OLPC OFW, we might end up relocating the fixmap due to
