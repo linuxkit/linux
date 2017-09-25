@@ -917,6 +917,10 @@ void __init setup_arch(char **cmdline_p)
 	rd_prompt = ((boot_params.hdr.ram_size & RAMDISK_PROMPT_FLAG) != 0);
 	rd_doload = ((boot_params.hdr.ram_size & RAMDISK_LOAD_FLAG) != 0);
 #endif
+	/* XXX Dump the pad2 data used by our modified efi-stub */
+	pr_info("XXX: %s:%i: %#02x %#02x %#02x %#02x\n", __func__, __LINE__,
+		boot_params._pad2[0], boot_params._pad2[1],
+		boot_params._pad2[2], boot_params._pad2[3]);
 #ifdef CONFIG_EFI
 	if (!strncmp((char *)&boot_params.efi_info.efi_loader_signature,
 		     EFI32_LOADER_SIGNATURE, 4)) {

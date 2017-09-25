@@ -18,6 +18,19 @@
 #include "../string.h"
 #include "eboot.h"
 
+/* XXX We us the _pad2[4] field in struct boot_params to pass some
+ * debug info from the efi-stub to the kernel proper.
+ * - _pad2[0] contains some flags
+ * - _pad2[2] contains the number of memmap descriptors added
+ * - _pad2[3] contains the number of e820 descriptors added
+ */
+
+#define XXX_FLAG_EFI_MAIN    (1 << 0) /* efi_main() called */
+#define XXX_FLAG_SETUP_E820  (1 << 1) /* setup_e820() called */
+#define XXX_FLAG_ADD_E820EXT (1 << 2) /* add_e820ext() called */
+#define XXX_FLAG_MD_ZERO     (1 << 7) /* 1st memmap zero */
+
+
 static efi_system_table_t *sys_table;
 
 static struct efi_config *efi_early;
@@ -730,6 +743,8 @@ static void add_e820ext(struct boot_params *params,
 	efi_status_t status;
 	unsigned long size;
 
+	params->_pad2[0] |= XXX_FLAG_ADD_E820EXT;
+
 	e820ext->type = SETUP_E820_EXT;
 	e820ext->len = nr_entries * sizeof(struct boot_e820_entry);
 	e820ext->next = 0;
@@ -758,10 +773,22 @@ static efi_status_t setup_e820(struct boot_params *params,
 	nr_entries = 0;
 	nr_desc = efi->efi_memmap_size / efi->efi_memdesc_size;
 
+	params->_pad2[0] |= XXX_FLAG_SETUP_E820;
+
+	{
+		efi_memory_desc_t *md = (efi_memory_desc_t *)(unsigned long)efi->efi_memmap;
+		unsigned long long start = md->phys_addr;
+                unsigned long long size = md->num_pages << EFI_PAGE_SHIFT;
+                if (start == 0 && size == 0)
+			params->_pad2[0] |= XXX_FLAG_MD_ZERO;
+	}
+
 	for (i = 0; i < nr_desc; i++) {
 		efi_memory_desc_t *d;
 		unsigned int e820_type = 0;
 		unsigned long m = efi->efi_memmap;
+
+		params->_pad2[2] += 1;
 
 #ifdef CONFIG_X86_64
 		m |= (u64)efi->efi_memmap_hi << 32;
@@ -829,6 +856,8 @@ static efi_status_t setup_e820(struct boot_params *params,
 		entry->type = e820_type;
 		prev = entry++;
 		nr_entries++;
+
+		params->_pad2[3] += 1;
 	}
 
 	if (nr_entries > ARRAY_SIZE(params->e820_table)) {
@@ -972,6 +1001,8 @@ struct boot_params *efi_main(struct efi_config *c,
 	void *handle;
 	efi_system_table_t *_table;
 	bool is64;
+
+	boot_params->_pad2[0] |= XXX_FLAG_EFI_MAIN;
 
 	efi_early = c;
 
