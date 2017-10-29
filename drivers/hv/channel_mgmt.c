@@ -1100,6 +1100,8 @@ static void vmbus_ongpadl_created(struct vmbus_channel_message_header *hdr)
 
 	gpadlcreated = (struct vmbus_channel_gpadl_created *)hdr;
 
+	trace_vmbus_ongpadl_created(gpadlcreated);
+
 	/*
 	 * Find the establish msg, copy the result and signal/unblock the wait
 	 * event
