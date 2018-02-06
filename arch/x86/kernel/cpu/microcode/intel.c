@@ -1134,6 +1134,9 @@ static int __init calc_llc_size_per_core(struct cpuinfo_x86 *c)
 {
 	u64 llc_size = c->x86_cache_size * 1024;
 
+	if (!c->x86_max_cores)
+		return 0;
+
 	do_div(llc_size, c->x86_max_cores);
 
 	return (int)llc_size;
