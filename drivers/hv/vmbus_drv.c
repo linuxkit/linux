@@ -718,6 +718,10 @@ static int vmbus_probe(struct device *child_device)
 		       dev_name(child_device));
 		ret = -ENODEV;
 	}
+
+	pr_info("probed type:%pUl instance:%pUl\n",
+		dev->dev_type.b, dev->dev_instance.b);
+
 	return ret;
 }
 
@@ -734,6 +738,9 @@ static int vmbus_remove(struct device *child_device)
 		if (drv->remove)
 			drv->remove(dev);
 	}
+
+	pr_info("remove type:%pUl instance:%pUl\n",
+		dev->dev_type.b, dev->dev_instance.b);
 
 	return 0;
 }
