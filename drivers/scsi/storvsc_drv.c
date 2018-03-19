@@ -518,6 +518,7 @@ static void storvsc_host_scan(struct work_struct *work)
 	struct Scsi_Host *host;
 	struct scsi_device *sdev;
 	struct scsi_sense_hdr sense_hdr;
+	int res;
 
 	wrk = container_of(work, struct storvsc_scan_work, work);
 	host = wrk->host;
@@ -534,8 +535,10 @@ static void storvsc_host_scan(struct work_struct *work)
 	 * may have been removed this way.
 	 */
 	mutex_lock(&host->scan_mutex);
-	shost_for_each_device(sdev, host)
-		scsi_test_unit_ready(sdev, 1, 1, &sense_hdr);
+	shost_for_each_device(sdev, host) {
+		res = scsi_test_unit_ready(sdev, 1, 1, &sense_hdr);
+		sdev_printk(KERN_INFO, sdev, "test_unit_ready=%d\n", res);
+	}
 	mutex_unlock(&host->scan_mutex);
 	/*
 	 * Now scan the host to discover LUNs that may have been added.
@@ -557,6 +560,7 @@ static void storvsc_remove_lun(struct work_struct *work)
 	sdev = scsi_device_lookup(wrk->host, 0, wrk->tgt_id, wrk->lun);
 
 	if (sdev) {
+		sdev_printk(KERN_INFO, sdev, "remove lun\n");
 		scsi_remove_device(sdev);
 		scsi_device_put(sdev);
 	}
@@ -922,6 +926,7 @@ static void storvsc_handle_error(struct vmscsi_request *vm_srb,
 				u8 asc, u8 ascq)
 {
 	struct storvsc_scan_work *wrk;
+	struct scsi_device *sdev;
 	void (*process_err_fn)(struct work_struct *work);
 	bool do_work = false;
 
@@ -957,6 +962,10 @@ static void storvsc_handle_error(struct vmscsi_request *vm_srb,
 		}
 		break;
 	case SRB_STATUS_INVALID_LUN:
+		sdev = scsi_device_lookup(host, 0,
+					  vm_srb->target_id, vm_srb->lun);
+		sdev_printk(KERN_INFO, sdev,
+			    "invalid lun. CMD 0x%02x\n", scmnd->cmnd[0]);
 		set_host_byte(scmnd, DID_NO_CONNECT);
 		do_work = true;
 		process_err_fn = storvsc_remove_lun;
@@ -1130,6 +1139,8 @@ static void storvsc_on_receive(struct storvsc_device *stor_device,
 		work = kmalloc(sizeof(struct storvsc_scan_work), GFP_ATOMIC);
 		if (!work)
 			return;
+
+		printk("storvsc_on_receive: %d", vstor_packet->operation);
 
 		INIT_WORK(&work->work, storvsc_host_scan);
 		work->host = stor_device->host;
@@ -1386,6 +1397,7 @@ static int storvsc_device_alloc(struct scsi_device *sdevice)
 
 static int storvsc_device_configure(struct scsi_device *sdevice)
 {
+	sdev_printk(KERN_INFO, sdevice, "slave_configure\n");
 
 	blk_queue_bounce_limit(sdevice->request_queue, BLK_BOUNCE_ANY);
 
