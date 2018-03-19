@@ -517,6 +517,7 @@ static void storvsc_host_scan(struct work_struct *work)
 	struct storvsc_scan_work *wrk;
 	struct Scsi_Host *host;
 	struct scsi_device *sdev;
+	struct scsi_sense_hdr sense_hdr;
 
 	wrk = container_of(work, struct storvsc_scan_work, work);
 	host = wrk->host;
@@ -534,7 +535,7 @@ static void storvsc_host_scan(struct work_struct *work)
 	 */
 	mutex_lock(&host->scan_mutex);
 	shost_for_each_device(sdev, host)
-		scsi_test_unit_ready(sdev, 1, 1, NULL);
+		scsi_test_unit_ready(sdev, 1, 1, &sense_hdr);
 	mutex_unlock(&host->scan_mutex);
 	/*
 	 * Now scan the host to discover LUNs that may have been added.
